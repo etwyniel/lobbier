@@ -121,6 +121,8 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                 let response = match event {
                     RoomEvent::PlayerJoined { name, .. } => {
                         if lobby.started {
+                            ctx.text(r#"{"type":"GameInProgress"}"#);
+                            ctx.stop();
                             return;  // TODO: notify player that they can't join
                         }
                         player.name = name.clone();

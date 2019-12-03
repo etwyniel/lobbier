@@ -68,7 +68,7 @@ fn main() {
             .service(web::resource("/ws/{code}").to(ws_index))
             .service(fs::Files::new("/", "static/").index_file("index.html"))
     })
-    .bind("0.0.0.0:8080")
+    .bind(std::env::args().nth(1).unwrap_or_else(|| "0.0.0.0:8080".to_string()))
     .unwrap()
     .run()
     .unwrap();

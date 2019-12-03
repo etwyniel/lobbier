@@ -6,6 +6,11 @@ async function run() {
 }
 
 const code = window.location.pathname.replace("/g/", "");
+const host_start_message = `
+<p>Press Start when all the players are here</p>
+<p class="is-size-7">Players can join by navigating to this page or
+by entering the code <span class="spoiler" onclick="$(this).toggleClass('is-active')">${code}</span> on the home page</p>
+`;
 
 var loaded = run();
 var conn = null;
@@ -45,9 +50,19 @@ function connect(name) {
     console.log("connected");
     conn.send(JSON.stringify({ type: "PlayerJoined", data: { name } }));
   };
+  conn.onerror = e => {
+    console.log(e);
+  };
   conn.onmessage = function(msg) {
     msg = JSON.parse(msg.data);
     switch (msg.type) {
+      case "GameInProgress":
+        $('#connect-error')
+          .removeClass('is-hidden')
+          .text('Game is already in progress');
+        $('#username-input').attr('disabled', false);
+        $('#connect').attr('disabled', false);
+        return;
       case "InitData":
         my_id = msg.data.id;
         my_role = msg.data.role;
@@ -65,7 +80,7 @@ function connect(name) {
         });
         if (my_role == "Host") {
           $('#start-game').show().attr('disabled', false);
-          $('#message').show().text('Press Start when all the players are here');
+          $('#message').show().html(host_start_message);
         } else {
           $('#message').show().text('Waiting for the host to start the game...');
         }
@@ -87,7 +102,11 @@ function connect(name) {
       }
       case "ChatMessage":
         var sender = players.find(p => p.id == msg.data.id);
-        $('#chat').append($(`<p>${sender.name}: ${msg.data.msg}</p>`));
+        let chat = document.getElementById("chat");
+        var isScrolledToBottom = chat.scrollHeight - chat.clientHeight <= chat.scrollTop + 1;
+        $(chat).append($(`<p>${sender.name}: ${msg.data.msg}</p>`));
+        if (isScrolledToBottom)
+          chat.scrollTop = chat.scrollHeight;
         break;
       case "GameStart":
         game.handle_event(msg.data);
@@ -104,7 +123,7 @@ function connect(name) {
         $('#reset-game').hide();
         if (my_role == "Host") {
           $('#start-game').show();
-          $('#message').show().text('Press Start when all the players are here');
+          $('#message').show().html(host_start_message);
         } else {
           $('#message').show().text('Waiting for the host to start the game...');
         }
@@ -139,8 +158,8 @@ function connect(name) {
           var dealCard = function() {
             let card = $('<span class="button is-dark playing-card">?</span>');
             $('body').append(card);
-            card.css({position: 'absolute', ...$('#draw-pile').position()});
-            card.css({opacity: 0, ...$('#player-' + Deal.player).position()});
+            card.css({position: 'absolute', ...$('#draw-pile').offset()});
+            card.css({opacity: 0, ...$('#player-' + Deal.player).offset()});
             setTimeout(() => card.remove(), 300);
             if (--count > 0) setTimeout(dealCard, 100);
           };
@@ -152,7 +171,7 @@ function connect(name) {
         if (msg.data.hasOwnProperty("PlayCard")) {
           var ev = msg.data.PlayCard;
           if (ev.player != my_id) {
-            try_play(fake_card(new Card(ev.card)), $('#player-' + ev.player).position());
+            try_play(fake_card(new Card(ev.card)), $('#player-' + ev.player).offset());
           }
           setTimeout(() => {
             update();
@@ -221,11 +240,11 @@ function wild_select_color(i, card) {
 }
 
 function try_play(card, start = null) {
-  let src = start ? start : card.position();
+  let src = start ? start : card.offset();
   card.css({position: 'absolute', ...src});
   card.detach();
-  $('#game-content').append(card);
-  let dest = $('#last-card').position();
+  $('body').append(card);
+  let dest = $('#last-card').offset();
   card.css(dest);
   setTimeout(() => card.remove(), 500);
 }
@@ -312,6 +331,7 @@ function update() {
 
 $(function() {
   window.connect = function() {
+    $('#connect-error').addClass('is-hidden');
     $('#connect').attr("disabled", true);
     var input = $('#username-input');
     input.attr("disabled", true);
@@ -348,3 +368,4 @@ $(function() {
 
 $(".modal-background").click(function() {$(this).parent().removeClass("is-active");});
 $(".modal-close").click(function() {$(this).parent().removeClass("is-active");});
+$('.spoiler').click(function() {$(this).toggleClass('is-active')});
