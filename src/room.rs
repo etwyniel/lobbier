@@ -87,6 +87,7 @@ impl Actor for PlayerHandle {
     fn stopped(&mut self, _: &mut Self::Context) {
         let player = self.lock().unwrap();
         let id = player.id;
+        eprintln!("Player {} left", &player.name);
         let lobby = match player.lobby.upgrade() {
             Some(lobby) => lobby,
             None => return,
@@ -120,13 +121,14 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                 eprintln!("Player {}: {:?}", player.id, &event);
                 let response = match event {
                     RoomEvent::PlayerJoined { name, .. } => {
+                        player.name = name.clone();
+                        player.id = lobby.players.len() as u32;
                         if lobby.started {
+                            drop(lobby);
                             ctx.text(r#"{"type":"GameInProgress"}"#);
                             ctx.stop();
                             return;  // TODO: notify player that they can't join
                         }
-                        player.name = name.clone();
-                        player.id = lobby.players.len() as u32;
                         if lobby.players.is_empty() {
                             player.role = Role::Host;
                         }
@@ -160,6 +162,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                         Some(event)
                     }
                     RoomEvent::ChatMessage { msg, .. } if !msg.is_empty() => {
+                        eprintln!("> {}: {}", player.name, &msg);
                         Some(RoomEvent::ChatMessage {
                             msg,
                             id: Some(player.id),

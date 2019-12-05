@@ -149,6 +149,9 @@ impl Lobbies {
 
     /// Remove unused codes
     pub fn purge(&mut self) {
+        if self.0.is_empty() {
+            return;
+        }
         eprintln!("Beginning purge...");
         let before = self.0.len();
         self.0

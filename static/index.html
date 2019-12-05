@@ -6,8 +6,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
     </script>
     <script language="javascript" type="text/javascript">
-      $(function() {
-        $('#join_room').click(() => {
+      function join_room() {
           var username = $('#username').val();
           console.log(username);
           var code = $('#room').val();
@@ -17,8 +16,7 @@
           );
           $('body').append(form);
           form.submit();
-        });
-      });
+      }
     </script>
     <link rel="stylesheet" href="/bulma.min.css"></link>
     <title>Singular</title>
@@ -44,14 +42,16 @@
             <h1 class="is-size-3"><b>OR</b></h1>
           </div>
           <div class="level-item">
-            <div class="field has-addons">
-              <div class="control">
-                <input placeholder="Room code" id="room" name="room" class="input is-medium">
+            <form action="javascript:join_room()">
+              <div class="field has-addons">
+                <div class="control">
+                  <input placeholder="Room code" id="room" name="room" class="input is-medium">
+                </div>
+                <div class="control">
+                  <button class="button is-primary is-medium" id="join_room">Join room</button>
+                </div>
               </div>
-              <div class="control">
-                <button class="button is-primary is-medium" id="join_room">Join room</button>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>
