@@ -5,7 +5,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::convert::{Into, TryFrom, TryInto};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Duration;
 
 const MAX_CODE: u32 = 26 * 26 * 26 * 26;
@@ -152,7 +152,11 @@ impl Lobbies {
         eprintln!("Beginning purge...");
         let before = self.0.len();
         self.0
-            .retain(|_, lobby| lobby.lock().unwrap().updated().elapsed() < MAX_CODE_AGE);
+            .retain(|_, lobby| match lobby.try_lock() {
+                Ok(lobby) => lobby.updated().elapsed() < MAX_CODE_AGE,
+                Err(TryLockError::Poisoned(_)) => false,
+                Err(TryLockError::WouldBlock) => true,
+            });
         eprintln!("Purged {} lobbies", before - self.0.len());
     }
 }
