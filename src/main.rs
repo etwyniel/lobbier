@@ -18,17 +18,20 @@ fn game_page(
     info: web::Path<(RoomCode,)>,
     _req: HttpRequest,
 ) -> impl Responder {
-    let lobby = match state.lock().unwrap().get(&info.0) {
-        Some(lobby) => lobby,
-        None => return fs::NamedFile::open("static/404.html").unwrap(),
+    let lobby = {
+        match state.lock().unwrap().get(&info.0) {
+            Some(lobby) => lobby,
+            None => return fs::NamedFile::open("static/404.html").unwrap(),
+        }
     };
     Player::new("", Arc::clone(&lobby));
     fs::NamedFile::open("static/game.html").unwrap()
 }
 
 fn create_lobby(state: web::Data<Mutex<Lobbies>>, r: HttpRequest) -> impl Responder {
-    let mut lobbies = state.lock().unwrap();
-    let code = lobbies.create_code().unwrap();
+    let code = {
+        state.lock().unwrap().create_code().unwrap()
+    };
     match r.headers().get("Host") {
         Some(host) => eprintln!("Lobby created: http://{}/g/{}", host.to_str().unwrap_or_default(), &code),
         None => eprintln!("Lobby created: {}", &code),
@@ -44,10 +47,12 @@ fn ws_index(
     r: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
-    let lobby = match state.lock().unwrap().get(&info.0) {
-        Some(lobby) => lobby,
-        None => return Err(().into()),
-        // None => return format!("Code {} is not currently in use", &info.0),
+    let lobby = {
+        match state.lock().unwrap().get(&info.0) {
+            Some(lobby) => lobby,
+            None => return Err(().into()),
+            // None => return format!("Code {} is not currently in use", &info.0),
+        }
     };
     let player = Player::new("player", Arc::clone(&lobby));
     ws::start(PlayerHandle(player), &r, stream)
