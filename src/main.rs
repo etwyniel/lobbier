@@ -26,9 +26,13 @@ fn game_page(
     fs::NamedFile::open("static/game.html").unwrap()
 }
 
-fn create_lobby(state: web::Data<Mutex<Lobbies>>) -> impl Responder {
+fn create_lobby(state: web::Data<Mutex<Lobbies>>, r: HttpRequest) -> impl Responder {
     let mut lobbies = state.lock().unwrap();
     let code = lobbies.create_code().unwrap();
+    match r.headers().get("Host") {
+        Some(host) => eprintln!("Lobby created: http://{}/g/{}", host.to_str().unwrap_or_default(), &code),
+        None => eprintln!("Lobby created: {}", &code),
+    }
     HttpResponse::TemporaryRedirect()
         .set_header("Location", format!("/g/{}", &code))
         .finish()

@@ -130,13 +130,13 @@ impl Lobbies {
     }
 
     pub fn get(&self, code: &RoomCode) -> Option<Arc<Mutex<Lobby>>> {
-        eprint!("Current codes:");
-        self.0
-            .keys()
-            .copied()
-            .map(RoomCode::try_from)
-            .for_each(|code| eprint!(" {}", code.unwrap()));
-        eprintln!();
+        // eprint!("Current codes:");
+        // self.0
+        //     .keys()
+        //     .copied()
+        //     .map(RoomCode::try_from)
+        //     .for_each(|code| eprint!(" {}", code.unwrap()));
+        // eprintln!();
         // for code in self.0.keys() {
         //     dbg!(code);
         // }
