@@ -3,7 +3,6 @@ use actix::prelude::*;
 use actix_web_actors::ws;
 use std::convert::Into;
 use std::ops::Deref;
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, Instant};
 
@@ -13,8 +12,7 @@ pub struct Player {
     role: Role,
     lobby: Weak<Mutex<Lobby>>,
     hb: Instant,
-    rx: Receiver<RoomEvent>,
-    tx: Sender<RoomEvent>,
+    addr: Option<Addr<PlayerHandle>>,
 }
 
 pub struct Lobby {
@@ -50,8 +48,8 @@ impl Lobby {
 
     pub fn event(&self, event: &RoomEvent) {
         for player in &self.players {
-            let player = player.lock().unwrap();
-            player.tx.send(event.clone()).unwrap();
+            let mut player = player.lock().unwrap();
+            player.send(event.clone());
         }
     }
 
@@ -87,18 +85,10 @@ impl Actor for PlayerHandle {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
+        {
+            self.lock().unwrap().addr = Some(ctx.address());
+        }
         self.hb(ctx);
-        ctx.run_interval(Duration::from_millis(30), |act, ctx| loop {
-            match act.lock().unwrap().rx.try_recv() {
-                Err(TryRecvError::Empty) => (),
-                Err(TryRecvError::Disconnected) => ctx.stop(),
-                Ok(msg) => {
-                    ctx.notify(msg);
-                    continue;
-                }
-            }
-            break;
-        });
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
@@ -201,9 +191,9 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                     RoomEvent::ToHost(_) => {
                         drop(player);
                         for player in &lobby.players {
-                            let p = player.lock().unwrap();
+                            let mut p = player.lock().unwrap();
                             if p.role == Role::Host {
-                                p.tx.send(event).unwrap();
+                                p.send(event);
                                 break;
                             }
                         }
@@ -212,9 +202,9 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                     RoomEvent::FromHost { id, .. } if player.role == Role::Host => {
                         drop(player);
                         for player in &lobby.players {
-                            let p = player.lock().unwrap();
+                            let mut p = player.lock().unwrap();
                             if p.id == id {
-                                p.tx.send(event).unwrap();
+                                p.send(event);
                                 break;
                             }
                         }
@@ -265,15 +255,13 @@ impl Handler<RoomEvent> for PlayerHandle {
 
 impl Player {
     pub fn new(name: &str, lobby: Arc<Mutex<Lobby>>) -> Arc<Mutex<Self>> {
-        let (tx, rx) = channel();
         let player = Arc::new(Mutex::new(Player {
             name: name.to_string(),
             id: 0,
             role: Role::Player,
             lobby: Arc::downgrade(&lobby),
             hb: Instant::now(),
-            rx,
-            tx,
+            addr: None,
         }));
         let mut lobby = lobby.lock().unwrap();
         lobby.update();
@@ -282,6 +270,10 @@ impl Player {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn send(&mut self, event: RoomEvent) {
+        self.addr.as_mut().unwrap().do_send(event);
     }
 }
 
