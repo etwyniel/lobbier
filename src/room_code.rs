@@ -4,8 +4,9 @@ use serde::{de::Visitor, Deserialize, Deserializer};
 use std::collections::{hash_map::Entry, HashMap};
 use std::convert::{Into, TryFrom, TryInto};
 use std::fmt::{self, Display, Formatter};
+use std::iter::Iterator;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::Duration;
 
 const MAX_CODE: u32 = 26 * 26 * 26 * 26;
@@ -154,13 +155,22 @@ impl Lobbies {
         }
         eprintln!("Beginning purge...");
         let before = self.0.len();
-        self.0
-            .retain(|_, lobby| match lobby.try_lock() {
-                Ok(lobby) => lobby.updated().elapsed() < MAX_CODE_AGE,
-                Err(TryLockError::Poisoned(_)) => false,
-                Err(TryLockError::WouldBlock) => true,
-            });
+        self.0.retain(|_, lobby| match lobby.try_lock() {
+            Ok(lobby) => lobby.updated().elapsed() < MAX_CODE_AGE,
+            Err(TryLockError::Poisoned(_)) => false,
+            Err(TryLockError::WouldBlock) => true,
+        });
         eprintln!("Purged {} lobbies", before - self.0.len());
+    }
+
+    pub fn list_public(&self) -> impl Iterator<Item = (RoomCode, MutexGuard<Lobby>)> {
+        self.0
+            .iter()
+            .filter_map(|(code, lobby)| match lobby.lock() {
+                Ok(lobby) if lobby.is_public() && !lobby.has_started() => Some((code, lobby)),
+                _ => None,
+            })
+            .map(|(&code, lobby)| (RoomCode::try_from(code).unwrap(), lobby))
     }
 }
 

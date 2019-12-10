@@ -41,6 +41,29 @@ fn create_lobby(state: web::Data<Mutex<Lobbies>>, r: HttpRequest) -> impl Respon
         .finish()
 }
 
+fn list_lobbies_api(state: web::Data<Mutex<Lobbies>>) -> impl Responder {
+    #[derive(Serialize)]
+    struct LobbyDescription {
+        code: String,
+        name: String,
+        player_count: usize,
+    }
+    let state = state.lock().unwrap();
+    let public_lobbies = state.list_public();
+    web::Json(public_lobbies.map(|(code, lobby)| {
+        let name = lobby.host().map(|h| format!("{}'s lobby", h.name())).unwrap_or_else(|| code.to_string());
+        LobbyDescription {
+            code: code.to_string(),
+            name,
+            player_count: lobby.player_count(),
+        }
+    }).collect::<Vec<_>>())
+}
+
+fn list_lobbies() -> impl Responder {
+    fs::NamedFile::open("static/lobbies.html").unwrap()
+}
+
 fn ws_index(
     state: web::Data<Mutex<Lobbies>>,
     info: web::Path<(RoomCode,)>,
@@ -74,6 +97,8 @@ fn main() {
             .register_data(data.clone())
             .service(web::resource("/g/{code}").to(game_page))
             .service(web::resource("/c").to(create_lobby))
+            .service(web::resource("/lobbies.json").to(list_lobbies_api))
+            .service(web::resource("/l").to(list_lobbies))
             .service(web::resource("/ws/{code}").to(ws_index))
             .service(fs::Files::new("/", "static/").index_file("index.html"))
     })

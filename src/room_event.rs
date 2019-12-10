@@ -32,7 +32,11 @@ pub enum RoomEvent {
     GameStart(serde_json::Value),
     Reset,
     ToHost(serde_json::Value),
-    FromHost { id: u32, msg: serde_json::Value },
+    FromHost {
+        id: u32,
+        msg: serde_json::Value,
+    },
+    SetPublic(bool),
     HostEvent(serde_json::Value),
     GameEvent(serde_json::Value),
 }

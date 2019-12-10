@@ -4,7 +4,7 @@ use actix_web_actors::ws;
 use std::convert::Into;
 use std::ops::Deref;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, Instant};
 
 pub struct Player {
@@ -21,6 +21,7 @@ pub struct Lobby {
     players: Vec<Arc<Mutex<Player>>>,
     started: bool,
     updated: Instant,
+    public: bool,
 }
 
 pub struct PlayerHandle(pub Arc<Mutex<Player>>);
@@ -31,6 +32,7 @@ impl Lobby {
             players: Vec::new(),
             started: false,
             updated: Instant::now(),
+            public: false,
         }))
     }
 
@@ -42,11 +44,28 @@ impl Lobby {
         self.updated
     }
 
+    pub fn player_count(&self) -> usize {
+        self.players.len()
+    }
+
     pub fn event(&self, event: &RoomEvent) {
         for player in &self.players {
             let player = player.lock().unwrap();
             player.tx.send(event.clone()).unwrap();
         }
+    }
+
+    pub fn has_started(&self) -> bool {
+        self.started
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.public
+    }
+
+    pub fn host(&self) -> Option<MutexGuard<Player>> {
+        self.players.iter().map(|p| p.lock().unwrap())
+            .find(|p| p.role == Role::Host)
     }
 }
 
@@ -69,18 +88,16 @@ impl Actor for PlayerHandle {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
-        ctx.run_interval(Duration::from_millis(30), |act, ctx| {
-            loop {
-                match act.lock().unwrap().rx.try_recv() {
-                    Err(TryRecvError::Empty) => (),
-                    Err(TryRecvError::Disconnected) => ctx.stop(),
-                    Ok(msg) => {
-                        ctx.notify(msg);
-                        continue;
-                    }
+        ctx.run_interval(Duration::from_millis(30), |act, ctx| loop {
+            match act.lock().unwrap().rx.try_recv() {
+                Err(TryRecvError::Empty) => (),
+                Err(TryRecvError::Disconnected) => ctx.stop(),
+                Ok(msg) => {
+                    ctx.notify(msg);
+                    continue;
                 }
-                break;
             }
+            break;
         });
     }
 
@@ -127,7 +144,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                             drop(lobby);
                             ctx.text(r#"{"type":"GameInProgress"}"#);
                             ctx.stop();
-                            return;  // TODO: notify player that they can't join
+                            return;
                         }
                         if lobby.players.is_empty() {
                             player.role = Role::Host;
@@ -176,6 +193,10 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                         lobby.started = false;
                         Some(event)
                     }
+                    RoomEvent::SetPublic(public) if player.role == Role::Host => {
+                        lobby.public = public;
+                        None
+                    }
                     RoomEvent::GameEvent(_) => Some(event),
                     RoomEvent::ToHost(_) => {
                         drop(player);
@@ -186,7 +207,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                                 break;
                             }
                         }
-                        return
+                        return;
                     }
                     RoomEvent::FromHost { id, .. } if player.role == Role::Host => {
                         drop(player);
@@ -197,7 +218,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                                 break;
                             }
                         }
-                        return
+                        return;
                     }
                     RoomEvent::HostEvent(_) if player.role == Role::Host => Some(event),
                     _ => None,
@@ -257,6 +278,10 @@ impl Player {
         let mut lobby = lobby.lock().unwrap();
         lobby.update();
         player
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
