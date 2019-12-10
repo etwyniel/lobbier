@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::Duration;
 
 const MAX_CODE: u32 = 26 * 26 * 26 * 26;
-const MAX_CODE_AGE: Duration = Duration::from_secs(3600);
+const MAX_CODE_AGE: Duration = Duration::from_secs(300);
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct RoomCode([u8; 4]);
