@@ -42,5 +42,5 @@ pub enum RoomEvent {
 }
 
 impl actix::Message for RoomEvent {
-    type Result = RoomEvent;
+    type Result = ();
 }

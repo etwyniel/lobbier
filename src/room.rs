@@ -234,22 +234,10 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
     }
 }
 
-pub struct Response;
-
-impl actix::dev::MessageResponse<PlayerHandle, RoomEvent> for Response {
-    fn handle<R: actix::dev::ResponseChannel<RoomEvent>>(
-        self,
-        _: &mut ws::WebsocketContext<PlayerHandle>,
-        _: Option<R>,
-    ) {
-    }
-}
-
 impl Handler<RoomEvent> for PlayerHandle {
-    type Result = Response;
-    fn handle(&mut self, msg: RoomEvent, ctx: &mut Self::Context) -> Response {
+    type Result = ();
+    fn handle(&mut self, msg: RoomEvent, ctx: &mut Self::Context) {
         ctx.text(serde_json::to_string(&msg).unwrap());
-        Response
     }
 }
 
