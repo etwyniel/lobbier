@@ -61,6 +61,7 @@ fn list_lobbies_api(state: web::Data<Mutex<Lobbies>>) -> impl Responder {
 }
 
 fn list_lobbies() -> impl Responder {
+    eprintln!("Lobby list requested");
     fs::NamedFile::open("static/lobbies.html").unwrap()
 }
 
