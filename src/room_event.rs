@@ -11,7 +11,6 @@ pub enum Role {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", content = "data")]
 pub enum RoomEvent {
     PlayerJoined {
         name: String,

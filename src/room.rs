@@ -125,7 +125,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                     return;
                 }
                 let event = serde_json::from_str(&text).unwrap();
-                eprintln!("Player {}: {:?}", player.id, &event);
+                eprintln!("Player {}: {}", player.id, &text);
                 let response = match event {
                     RoomEvent::PlayerJoined { name, .. } => {
                         player.name = name.clone();
