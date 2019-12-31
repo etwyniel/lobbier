@@ -218,7 +218,10 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for PlayerHandle {
                     lobby.event(&resp);
                 }
             }
-            ws::Message::Close(_) => {
+            ws::Message::Close(reason) => {
+                if let Some(reason) = reason {
+                    dbg!(reason);
+                }
                 ctx.stop();
             }
             ws::Message::Ping(_) => {
@@ -269,7 +272,7 @@ impl PlayerHandle {
     fn hb(&self, ctx: &mut <Self as Actor>::Context) {
         ctx.run_interval(Duration::from_secs(5), |act, ctx| {
             let player = act.lock().unwrap();
-            if player.hb.elapsed() > Duration::from_secs(10) {
+            if player.hb.elapsed() > Duration::from_secs(20) {
                 println!("Player {} died", &player.name);
                 ctx.stop();
                 return;
